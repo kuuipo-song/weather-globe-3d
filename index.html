@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌍 Global Weather Globe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="loading-overlay" id="loading">
+    <div class="loading-globe">🌍</div>
+    <div class="loading-text" id="loadingText">실시간 날씨 데이터 로딩중...</div>
+    <div class="loading-progress">
+      <div class="loading-bar" id="loadingBar" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">🌍</span>
+      <span class="logo-text">Global Weather Globe</span>
+    </div>
+    <div class="header-right">
+      <div class="api-status loading" id="apiStatus"><span>⏳</span><span>연결 중...</span></div>
+      <button class="header-btn" onclick="refreshData()">🔄 <span id="refreshText">새로고침</span></button>
+      <button class="header-btn" onclick="toggleLanguage()" id="langBtn">EN</button>
+    </div>
+  </header>
+
+  <nav class="continent-selector" id="continentSelector"></nav>
+
+  <main class="main-container">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="map-container">
+      <div class="map-wrapper" id="mapWrapper">
+        <img src="globe.png" alt="World Map" class="map-image" id="mapImage">
+        <div class="markers-container" id="markersContainer"></div>
+      </div>
+      <div class="continent-info" id="continentInfo">
+        <span class="emoji">🌐</span>
+        <span class="name">전체</span>
+        <span class="count">0개 도시</span>
+      </div>
+    </div>
+  </main>
+
+  <div class="card-overlay" id="cardOverlay" onclick="closeCard()"></div>
+  <div class="weather-card" id="weatherCard">
+    <button class="card-close" onclick="closeCard()">✕</button>
+    <div class="city-tabs" id="cityTabs"></div>
+    <div class="main-weather-card" id="mainWeatherCard">
+      <div class="city-header">
+        <div class="city-header-top">
+          <span class="city-pin">📍</span>
+          <span class="city-name-main" id="cardCityName">서울</span>
+          <span class="city-country" id="cardCountry">KR</span>
+        </div>
+        <div class="city-coords-small" id="cardCoords">37.57°N, 126.98°E</div>
+      </div>
+      <div class="weather-main-display">
+        <div class="emoji-container">
+          <span class="main-emoji" id="cardEmoji">😰</span>
+          <span class="weather-icon-badge" id="cardWeatherIcon">🌧️</span>
+        </div>
+        <div class="temp-display">
+          <span class="temp-value" id="cardTemp">19</span><span class="temp-unit">°C</span>
+          <div class="feels-like" id="cardFeels">체감 21°C</div>
+        </div>
+      </div>
+      <div class="weather-message" id="weatherMessage">
+        <div class="message-title" id="messageTitle">폭우</div>
+        <div class="message-sub" id="messageSub">외출을 삼가세요!</div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon-box humidity">💧</div>
+        <div class="stat-info">
+          <div class="stat-label" id="statHumidityLabel">습도</div>
+          <div class="stat-value"><span id="statHumidity">79</span><small>%</small></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-box wind">💨</div>
+        <div class="stat-info">
+          <div class="stat-label" id="statWindLabel">바람</div>
+          <div class="stat-value"><span id="statWind">12</span><small>m/s</small></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-box rain">🌧️</div>
+        <div class="stat-info">
+          <div class="stat-label" id="statRainLabel">강수확률</div>
+          <div class="stat-value"><span id="statRain">57</span><small>%</small></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-box visibility">👁️</div>
+        <div class="stat-info">
+          <div class="stat-label" id="statVisLabel">가시거리</div>
+          <div class="stat-value"><span id="statVis">10</span><small>km</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="quality-row">
+      <div class="quality-card aqi">
+        <div class="quality-header">
+          <span class="quality-emoji" id="aqiEmoji">🙂</span>
+          <span class="quality-label" id="aqiLabel">대기질</span>
+        </div>
+        <div class="quality-value" id="aqiValue">117</div>
+        <div class="quality-status" id="aqiStatus">보통</div>
+        <div class="aqi-bar"><div class="aqi-bar-fill" id="aqiBarFill" style="width: 40%; background: #8BC34A;"></div></div>
+      </div>
+      <div class="quality-card uv">
+        <div class="quality-header">
+          <span class="quality-emoji">😎</span>
+          <span class="quality-label" id="uvLabel">자외선</span>
+        </div>
+        <div class="quality-value" id="uvValue">5</div>
+        <div class="quality-status" id="uvStatus" style="color: #FF9800;">낮음</div>
+      </div>
+    </div>
+    <div class="hourly-section">
+      <div class="hourly-title">⏰ <span id="hourlyTitle">시간별 예보</span></div>
+      <div class="hourly-scroll" id="hourlyScroll"></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

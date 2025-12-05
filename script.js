@@ -449,10 +449,45 @@ function openCard(cityId) {
     document.getElementById('hourlyTitle').textContent = t('시간별 예보', 'Hourly Forecast');
     var hours = [];
     var now = new Date().getHours();
-    var icons = ['🌤️', '🔥', '⚡', '🌧️', '☁️', '❄️', '⚡', '❄️', '🌤️', '🌨️'];
+
+    // Generate hourly icons based on current weather condition
+    var baseWeather = weather.weather;
+    var baseTemp = weather.temp;
+
     for (var h = 0; h < 10; h++) {
       var hour = (now + h) % 24;
-      hours.push('<div class="hourly-item"><span class="hourly-time">' + hour + t('시', ':00') + '</span><span class="hourly-icon">' + icons[h] + '</span><span class="hourly-temp">' + (weather.temp + Math.floor(Math.random() * 5) - 2) + '°</span></div>');
+      var hourlyTemp = baseTemp + Math.floor(Math.random() * 5) - 2;
+
+      // Determine hourly weather type based on current conditions with slight variations
+      var hourlyWeather = baseWeather;
+      var isNight = hour >= 20 || hour < 6;
+
+      // Slight weather variations throughout the day
+      if (h > 0) {
+        var variation = Math.random();
+        if (baseWeather === 'Clear' && variation > 0.8) {
+          hourlyWeather = 'Clouds';
+        } else if (baseWeather === 'Clouds' && variation > 0.85) {
+          hourlyWeather = variation > 0.92 ? 'Rain' : 'Clear';
+        } else if (baseWeather === 'Rain' && variation > 0.7) {
+          hourlyWeather = variation > 0.85 ? 'Thunderstorm' : 'Drizzle';
+        } else if (baseWeather === 'Drizzle' && variation > 0.8) {
+          hourlyWeather = variation > 0.9 ? 'Rain' : 'Clouds';
+        }
+      }
+
+      // Get the appropriate icon for this hour's weather
+      var hourlyType = getWeatherType(hourlyWeather, hourlyTemp);
+      var hourlyIcon = hourlyType.icon;
+
+      // Adjust icon for night time (Clear -> Moon)
+      if (isNight && hourlyWeather === 'Clear') {
+        hourlyIcon = '🌙';
+      } else if (isNight && hourlyWeather === 'Clouds') {
+        hourlyIcon = '☁️';
+      }
+
+      hours.push('<div class="hourly-item"><span class="hourly-time">' + hour + t('시', ':00') + '</span><span class="hourly-icon">' + hourlyIcon + '</span><span class="hourly-temp">' + hourlyTemp + '°</span></div>');
     }
     document.getElementById('hourlyScroll').innerHTML = hours.join('');
     initDragScroll(document.getElementById('hourlyScroll'));

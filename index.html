@@ -28,7 +28,14 @@
     </div>
   </header>
 
-  <nav class="continent-selector" id="continentSelector"></nav>
+  <nav class="continent-selector">
+    <div id="continentSelector"></div>
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="citySearch" placeholder="도시/국가 검색...">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </nav>
 
   <main class="main-container">
     <aside class="sidebar" id="sidebar"></aside>
@@ -48,7 +55,6 @@
   <div class="card-overlay" id="cardOverlay" onclick="closeCard()"></div>
   <div class="weather-card" id="weatherCard">
     <button class="card-close" onclick="closeCard()">✕</button>
-    <div class="city-tabs" id="cityTabs"></div>
     <div class="main-weather-card" id="mainWeatherCard">
       <div class="city-header">
         <div class="city-header-top">

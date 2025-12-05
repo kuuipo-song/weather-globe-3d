@@ -63,7 +63,7 @@ var CITIES = [
   { id: 'sydney', name: '시드니', nameEn: 'Sydney', country: 'AU', continent: 'oceania', flag: '🇦🇺', lat: -33.8688, lon: 151.2093 },
   { id: 'melbourne', name: '멜버른', nameEn: 'Melbourne', country: 'AU', continent: 'oceania', flag: '🇦🇺', lat: -37.8136, lon: 144.9631 },
   { id: 'perth', name: '퍼스', nameEn: 'Perth', country: 'AU', continent: 'oceania', flag: '🇦🇺', lat: -31.9505, lon: 115.8605 },
-  { id: 'auckland', name: '오클랜드', nameEn: 'Auckland', country: 'NZ', continent: 'oceania', flag: '🇳🇿', lat: -36.8485, lon: 174.7633 },
+  { id: 'auckland', name: '오클랜드', nameEn: 'Auckland', country: 'NZ', continent: 'oceania', flag: '🇳🇿', lat: -36.8485, lon: 170 },
 ];
 
 var CONTINENTS = {
@@ -112,6 +112,20 @@ var selectedCity = null;
 var weatherData = [];
 var apiSuccessCount = 0;
 var apiFailCount = 0;
+
+// Map zoom and pan state
+var mapState = {
+  scale: 1,
+  translateX: 0,
+  translateY: 0,
+  isDragging: false,
+  startX: 0,
+  startY: 0,
+  lastTranslateX: 0,
+  lastTranslateY: 0,
+  minScale: 1,
+  maxScale: 4
+};
 
 function t(ko, en) { return currentLanguage === 'ko' ? ko : en; }
 
@@ -390,15 +404,6 @@ function openCard(cityId) {
   selectedCity = city;
   renderMarkers();
 
-  var sameContinentCities = weatherData.filter(function(d) { return d.continent === city.continent && d.isReal; });
-  var tabsHtml = '';
-  for (var k = 0; k < sameContinentCities.length; k++) {
-    var c = sameContinentCities[k];
-    tabsHtml += '<button class="city-tab ' + (c.id === cityId ? 'active' : '') + '" onclick="openCard(\'' + c.id + '\')">' + c.country + ' ' + t(c.name, c.nameEn) + '</button>';
-  }
-  document.getElementById('cityTabs').innerHTML = tabsHtml;
-  initDragScroll(document.getElementById('cityTabs'));
-
   var weather = data.weather;
   var type = weather ? getWeatherType(weather.weather, weather.temp) : WEATHER_TYPES.Clear;
 
@@ -513,19 +518,235 @@ function toggleLanguage() {
   renderSidebar();
   renderContinentInfo();
   updateApiStatus();
+  updateSearchPlaceholder();
   if (selectedCity) openCard(selectedCity.id);
 }
 
 function refreshData() { loadWeatherData(); }
+
+// Search functionality
+function initSearch() {
+  var searchInput = document.getElementById('citySearch');
+  var searchResults = document.getElementById('searchResults');
+
+  searchInput.addEventListener('input', function() {
+    var query = this.value.trim().toLowerCase();
+    if (query.length === 0) {
+      searchResults.classList.remove('show');
+      return;
+    }
+
+    var results = CITIES.filter(function(city) {
+      var nameMatch = city.name.toLowerCase().includes(query) || city.nameEn.toLowerCase().includes(query);
+      var countryMatch = city.country.toLowerCase().includes(query);
+      return nameMatch || countryMatch;
+    });
+
+    renderSearchResults(results, query);
+  });
+
+  searchInput.addEventListener('focus', function() {
+    if (this.value.trim().length > 0) {
+      var query = this.value.trim().toLowerCase();
+      var results = CITIES.filter(function(city) {
+        var nameMatch = city.name.toLowerCase().includes(query) || city.nameEn.toLowerCase().includes(query);
+        var countryMatch = city.country.toLowerCase().includes(query);
+        return nameMatch || countryMatch;
+      });
+      renderSearchResults(results, query);
+    }
+  });
+
+  // Close search results when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-container')) {
+      searchResults.classList.remove('show');
+    }
+  });
+
+  // Update placeholder based on language
+  updateSearchPlaceholder();
+}
+
+function updateSearchPlaceholder() {
+  var searchInput = document.getElementById('citySearch');
+  if (searchInput) {
+    searchInput.placeholder = t('도시/국가 검색...', 'Search city/country...');
+  }
+}
+
+function renderSearchResults(results, query) {
+  var searchResults = document.getElementById('searchResults');
+  var html = '';
+
+  if (results.length === 0) {
+    html = '<div class="search-no-results">' + t('검색 결과가 없습니다', 'No results found') + '</div>';
+  } else {
+    for (var i = 0; i < results.length; i++) {
+      var city = results[i];
+      var data = null;
+      for (var j = 0; j < weatherData.length; j++) {
+        if (weatherData[j].id === city.id) { data = weatherData[j]; break; }
+      }
+      var temp = (data && data.weather) ? data.weather.temp + '°' : '--';
+
+      html += '<button class="search-result-item" onclick="onSearchResultClick(\'' + city.id + '\')">';
+      html += '<span class="search-result-flag">' + city.flag + '</span>';
+      html += '<div class="search-result-info">';
+      html += '<div class="search-result-name">' + t(city.name, city.nameEn) + '</div>';
+      html += '<div class="search-result-country">' + city.country + ' · ' + t(CONTINENTS[city.continent].name, CONTINENTS[city.continent].nameEn) + '</div>';
+      html += '</div>';
+      html += '<span class="search-result-temp">' + temp + '</span>';
+      html += '</button>';
+    }
+  }
+
+  searchResults.innerHTML = html;
+  searchResults.classList.add('show');
+}
+
+function onSearchResultClick(cityId) {
+  var searchInput = document.getElementById('citySearch');
+  var searchResults = document.getElementById('searchResults');
+
+  searchInput.value = '';
+  searchResults.classList.remove('show');
+  openCard(cityId);
+}
 
 // 창 크기 변경 시 마커 위치 재계산
 window.addEventListener('resize', function() {
   renderMarkers();
 });
 
+// Map zoom and pan functionality
+function clampTranslation() {
+  var mapContainer = document.querySelector('.map-container');
+  if (!mapContainer) return;
+
+  var rect = mapContainer.getBoundingClientRect();
+  var containerWidth = rect.width;
+  var containerHeight = rect.height;
+
+  // Calculate scaled image dimensions
+  var scaledWidth = containerWidth * mapState.scale;
+  var scaledHeight = containerHeight * mapState.scale;
+
+  // Calculate boundaries
+  var minX = containerWidth - scaledWidth;
+  var maxX = 0;
+  var minY = containerHeight - scaledHeight;
+  var maxY = 0;
+
+  // If zoomed out (image smaller than container), center it
+  if (scaledWidth <= containerWidth) {
+    mapState.translateX = (containerWidth - scaledWidth) / 2;
+  } else {
+    mapState.translateX = Math.max(minX, Math.min(maxX, mapState.translateX));
+  }
+
+  if (scaledHeight <= containerHeight) {
+    mapState.translateY = (containerHeight - scaledHeight) / 2;
+  } else {
+    mapState.translateY = Math.max(minY, Math.min(maxY, mapState.translateY));
+  }
+}
+
+function applyMapTransform() {
+  var mapImage = document.getElementById('mapImage');
+  var markersContainer = document.getElementById('markersContainer');
+
+  clampTranslation();
+
+  var transform = 'translate(' + mapState.translateX + 'px, ' + mapState.translateY + 'px) scale(' + mapState.scale + ')';
+  mapImage.style.transform = transform;
+  markersContainer.style.transform = transform;
+}
+
+function initMapZoomPan() {
+  var mapContainer = document.querySelector('.map-container');
+  var mapWrapper = document.getElementById('mapWrapper');
+
+  // Mouse wheel zoom
+  mapContainer.addEventListener('wheel', function(e) {
+    e.preventDefault();
+
+    var rect = mapContainer.getBoundingClientRect();
+    var mouseX = e.clientX - rect.left;
+    var mouseY = e.clientY - rect.top;
+
+    var delta = e.deltaY > 0 ? -0.1 : 0.1;
+    var newScale = mapState.scale + delta;
+    newScale = Math.max(mapState.minScale, Math.min(mapState.maxScale, newScale));
+
+    if (newScale !== mapState.scale) {
+      // Zoom toward mouse position
+      var scaleRatio = newScale / mapState.scale;
+      var centerX = rect.width / 2;
+      var centerY = rect.height / 2;
+
+      // Adjust translate to zoom toward mouse position
+      mapState.translateX = mouseX - (mouseX - mapState.translateX) * scaleRatio;
+      mapState.translateY = mouseY - (mouseY - mapState.translateY) * scaleRatio;
+      mapState.scale = newScale;
+
+      applyMapTransform();
+    }
+  }, { passive: false });
+
+  // Mouse drag to pan
+  mapContainer.addEventListener('mousedown', function(e) {
+    // Only start drag if not clicking on a marker
+    if (e.target.closest('.city-marker')) return;
+
+    mapState.isDragging = true;
+    mapState.startX = e.clientX;
+    mapState.startY = e.clientY;
+    mapState.lastTranslateX = mapState.translateX;
+    mapState.lastTranslateY = mapState.translateY;
+
+    mapContainer.classList.add('grabbing');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!mapState.isDragging) return;
+
+    var dx = e.clientX - mapState.startX;
+    var dy = e.clientY - mapState.startY;
+
+    mapState.translateX = mapState.lastTranslateX + dx;
+    mapState.translateY = mapState.lastTranslateY + dy;
+
+    applyMapTransform();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (mapState.isDragging) {
+      mapState.isDragging = false;
+      var mapContainer = document.querySelector('.map-container');
+      if (mapContainer) {
+        mapContainer.classList.remove('grabbing');
+      }
+    }
+  });
+
+  // Double-click to reset zoom
+  mapContainer.addEventListener('dblclick', function(e) {
+    if (e.target.closest('.city-marker')) return;
+
+    mapState.scale = 1;
+    mapState.translateX = 0;
+    mapState.translateY = 0;
+    applyMapTransform();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   renderContinentSelector();
   loadWeatherData();
+  initMapZoomPan();
+  initSearch();
 });
 
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCard(); });
